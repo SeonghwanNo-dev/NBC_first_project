@@ -2,7 +2,7 @@
 import pandas as pd
 
 # input
-file_path = 'train.csv'
+file_path = 'data/train.csv'
 
 try:
     df = pd.read_csv(file_path, encoding='utf-8')
