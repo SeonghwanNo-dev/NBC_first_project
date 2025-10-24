@@ -1,4 +1,4 @@
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader, random_split
 import torch
 
 class processed_dataset(Dataset):
@@ -14,3 +14,23 @@ class processed_dataset(Dataset):
 
     def __len__(self):
         return len(self.labels)
+    
+def divide_into_TrainAndTest(total_dataset, train_ratio):
+    total_num = len(total_dataset)
+    train_num = int(total_num * train_ratio)
+    test_num = total_num - test_num
+    
+    train_dataset, test_dataset = random_split(total_dataset, [train_num, test_num])
+    
+    train_loader = DataLoader(
+        total_dataset,
+        batch_size=256,
+        shuffle=True,
+    )
+    test_loader = DataLoader(
+        total_dataset,
+        batch_size=256,
+        shuffle=False,
+    )
+    return train_loader, test_loader
+    
