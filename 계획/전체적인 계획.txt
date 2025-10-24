@@ -1,0 +1,17 @@
+1. ML 파이프라인
+원본 텍스트 -> 정제 -> 토큰화 -> 표준화 -> 벡터화 -> 모델 input
+
+2. ToDo
+{그냥 표준 or Pretrain 따라가기}
+- 모델 선택하기
+- 결과 지표 선택하기
+- 전처리 및 정규화
+
+{집중해야 할 부분}
+- dataset 더 만들기 (Synthetic Dataset by LLM or Data Augmentation)
+- KD 수행
+
+{추가 tool}
+- docker
+- WandB
+
