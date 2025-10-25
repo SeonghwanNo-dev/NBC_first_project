@@ -1,0 +1,1 @@
+이건 그냥 Pre-trained Model의 방식을 따라갈 수 밖에 없다.
