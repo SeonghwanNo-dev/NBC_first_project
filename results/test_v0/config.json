@@ -1,0 +1,6 @@
+{
+    "lr": 2e-05,
+    "batch_size": 16,
+    "num_epochs": 10,
+    "model_name": "klue/roberta-base"
+}
