@@ -1,8 +1,10 @@
 # 1. Load Data
 import pandas as pd
+from pathlib import Path
 
 # input
-file_path = 'data/train.csv'
+base_dir = Path(__file__).resolve().parent
+file_path = base_dir/'data/train.csv'
 
 try:
     df = pd.read_csv(file_path, encoding='utf-8')

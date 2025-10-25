@@ -4,15 +4,19 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from pathlib import Path
 
 import Module.classifier as classifier
 import Module.trainer as trainer
 import Module.processing_data as processing_data
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+is_cuda_available = torch.cuda.is_available()
+print(f"CUDA 사용 가능: {is_cuda_available}")
 models = ["klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
 
-file_path = 'data/train.csv'
+base_dir = Path(__file__).resolve().parent
+file_path = base_dir/'data/train.csv'
 df = pd.read_csv(file_path, encoding='utf-8')
 reviews = df['review'].astype(str).tolist()
 labels = df['label']
@@ -24,7 +28,7 @@ for i in models:
     # 1. transformer_model, tokenizer, classifier_head
     transformer_model = AutoModel.from_pretrained(i)
     tokenizer = AutoTokenizer.from_pretrained(i)
-    classification_head = classifier.ClassificationHead(hidden_size=transformer_model.config.hidden_size, NUM_LABELS=4).to(DEVICE)
+    classification_head = classifier.ClassificationHead(hidden_size=transformer_model.config.hidden_size, num_labels=4).to(DEVICE)
     
     # 2. data encoding 및 DataLoader 생성 (모든 리뷰를 한 번에 처리)
     full_encodings = tokenizer(

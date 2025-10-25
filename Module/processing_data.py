@@ -18,17 +18,17 @@ class processed_dataset(Dataset):
 def divide_into_TrainAndTest(total_dataset, train_ratio):
     total_num = len(total_dataset)
     train_num = int(total_num * train_ratio)
-    test_num = total_num - test_num
+    test_num = total_num - train_num
     
     train_dataset, test_dataset = random_split(total_dataset, [train_num, test_num])
     
     train_loader = DataLoader(
-        total_dataset,
+        train_dataset,
         batch_size=256,
         shuffle=True,
     )
     test_loader = DataLoader(
-        total_dataset,
+        test_dataset,
         batch_size=256,
         shuffle=False,
     )
