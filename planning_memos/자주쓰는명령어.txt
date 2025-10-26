@@ -1,0 +1,2 @@
+- source /data/ephemeral/home/py310/bin/activate
+- cd /data/ephemeral/home/NBC_first_memos
