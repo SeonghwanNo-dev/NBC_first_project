@@ -1,14 +1,48 @@
 목표: Knowledge Distillation
 
+
 1. Teacher Model이 내부에 접근할 수 있는 White box일 때
   - 중간 피처 값들을 모방한다.
   - 마지막 layer의 soft label을 학습한다.
+  - 1. 총 레이어 수를 각각 파악한다. 
+    -> (38,6144), (12, 768) 
+  - 2. Student의 레이어 수에 맞게 간격을 둬서 Teacher 모델의 레이어를 지정한다.
+    -> 1, 4, 7, 10, 13, 16, 19, 22, 25, 29, 33, 38 (총 12 레이어)
+    -> 6144 = 768*8
+  - 3. 지정된 레이어에서 feature 값들을 저장한다. 마지막 레이어의 soft label도 저장한다.
+  - 4. feature의 차원이 다르므로, 피처 어댑터 레이어를 붙인다.
+  - 5. low-level feature부터 값을 일치하게 학습시킨다.
+  - 6. 모든 레이어의 feature 값을 일치시킨 뒤, 전체 Loss를 통해 풀 파인튜닝 한다.
 
 2. Teacher Model이 내부에 접근할 수 없는 Black box일 때
   - Ensemble을 통해 라벨링을 한다.
   - Proxy 기법을 사용한다.
 
+
 3. Data Augmentation을 이용한 KD <- 어떻게 구현하지.. 해보고 싶긴 해
   - Black box일 때 구현
   - White box일 때 구현
   - DA를 적용했을 때 실제로 성능이 좋아지는가(실제로 좋아지게 계속 연구해야 함...)
+
+
+4. Layer 개수와 hidden state의 Feature Size
+- Teacher: naver-hyperclovax/HyperCLOVAX-SEED-Think-14B
+Total Layers (num_hidden_layers): 38
+Feature Size (hidden_size): 6144
+
+- Student
+klue/roberta-base, 
+  Total Layers (num_hidden_layers): 12
+  Feature Size (hidden_size): 768
+klue/bert-base
+  Total Layers (num_hidden_layers): 12
+  Feature Size (hidden_size): 768
+kykim/bert-kor-base
+  Total Layers (num_hidden_layers): 12
+  Feature Size (hidden_size): 768
+beomi/kcbert-base
+  Total Layers (num_hidden_layers): 12
+  Feature Size (hidden_size): 768
+monologg/koelectra-base-v3-discriminator
+  Total Layers (num_hidden_layers): 12
+  Feature Size (hidden_size): 768
