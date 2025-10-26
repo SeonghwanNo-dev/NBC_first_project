@@ -81,5 +81,5 @@ for i in models:
         device=DEVICE
     )
     
-    trainer_instance.run_training(train_loader, train_loader, num_epochs=10 ) # 편의상 test_loader 대신 train_loader 사용
+    trainer_instance.run_training(train_loader, test_loader, num_epochs=10 )
     
