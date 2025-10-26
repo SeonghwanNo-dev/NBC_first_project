@@ -1,0 +1,8 @@
+모델 선택 방법
+1. 각각의 모델에 대해 CLS 벡터 확보한다.
+2. CLS 벡터에 classifier(2-layer NN)을 붙인다.
+3. test dataset에 대해 결과가 가장 좋은 모델을 선택한다.
+
+Teacher Model
+WhiteBox Teacher Model: HyperCLOVAX-SEED-Think-14B
+https://huggingface.co/naver-hyperclovax/HyperCLOVAX-SEED-Think-14B
