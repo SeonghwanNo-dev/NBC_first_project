@@ -1,13 +1,5 @@
-'''
-Argument: path_to_store, project_name, config
-Method
-- log: 학습 과정에서 변화하는 Loss, Accuracy 같은 값들을 기록
-- d_log: dataset을 경로에 기록
-- w_log: weight를 경로에 기록
-'''
 import csv
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -33,6 +25,12 @@ class ExperimentTool:
             path_to_store (str): 모든 결과 파일을 저장할 기본 디렉토리 경로. 
             project_name (str): 현재 실험이 속한 프로젝트 이름.
             config (Dict[str, Any]): 하이퍼파라미터 및 고정된 실험 설정 딕셔너리.
+            
+        Method:
+            _save_config(self) -> None: 현재 실험 설정을 JSON 파일로 저장합니다.
+            log(self, metrics: Dict[str, Any]) -> None: 학습 과정에서 변화하는 Loss, Accuracy 같은 값들을 기록합니다.
+            d_log(self, dataset: pd.DataFrame, name: str) -> str: 실험에 사용된 데이터셋을 CSV 형태로 저장합니다.
+           w_log(self, model: nn.Module, name: str) -> str: 학습된 모델의 가중치(Weights)를 PyTorch .pth 파일로 저장합니다.
         """
         # 기본 저장 경로 설정 및 생성 (Pathlib 사용)
         self.project_name = project_name
