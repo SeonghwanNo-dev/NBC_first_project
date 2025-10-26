@@ -2,7 +2,8 @@ from tqdm import tqdm
 import torch
 
 class Trainer:
-    def __init__(self, freeze_transformer, freeze_classifier, transformer_model, classification_head, criterion, optimizer, device):
+    def __init__(self, experiment_tool, freeze_transformer, freeze_classifier, transformer_model, classification_head, criterion, optimizer, device):
+        self.experiment_tool = experiment_tool
         self.transformer_model = transformer_model
         self.classification_head = classification_head
         self.freeze_transformer = freeze_transformer
@@ -106,7 +107,11 @@ class Trainer:
             
             train_losses.append(train_loss)
             test_accuracies.append(test_accuracy)
-
-            print(f"[Epoch {epoch}/{num_epochs}] Loss: {train_loss:.4f}, Test Acc: {test_accuracy:.4f}")
             
+            log = {
+            "epoch": epoch,
+            "train_loss": train_loss, 
+            "test_acc": test_accuracy
+            }
+            self.experiment_tool.log(log)
         return train_losses, test_accuracies
