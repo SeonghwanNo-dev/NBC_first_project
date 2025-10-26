@@ -10,6 +10,10 @@ import Module.classifier as classifier
 import Module.trainer as trainer
 import Module.processing_data as processing_data
 import Module.experiment_tool as exp_tool
+import Module.setSeed as setSeed
+
+RANDOM_STATE = 42
+setSeed.set_seed(RANDOM_STATE)
 
 # tool 사용하기
 PATH_TO_STORE = './NBC_first_project/results'
@@ -17,6 +21,7 @@ PROJECT_NAME = 'model_selection_v1'
 HW_COUNT = torch.cuda.device_count()
 HW_NAME = torch.cuda.get_device_name(0)
 CONFIG = {
+    "seed": RANDOM_STATE,
     "lr": 2e-5, 
     "batch_size": 256, 
     "num_epochs": 10,
