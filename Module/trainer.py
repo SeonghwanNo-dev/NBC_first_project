@@ -60,8 +60,8 @@ class Trainer:
                 "epoch": epoch,
                 "batch_idx": batch_idx,
                 "train_loss": loss.item(),
-                "train_loss/one_epoch": 0, 
-                "test_acc": 0
+                "train_loss/one_epoch": "N", 
+                "test_acc": "N"
             }
             self.experiment_tool.log(log)
             total_loss += loss.item()
@@ -118,8 +118,8 @@ class Trainer:
             
             log = {
                 "epoch": epoch,
-                "batch_idx": 0,
-                "train_loss": 0,
+                "batch_idx": "N",
+                "train_loss": "N",
                 "train_loss/one_epoch": train_loss, 
                 "test_acc": test_accuracy
             }
