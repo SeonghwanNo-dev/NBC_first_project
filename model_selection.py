@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 import Module.classifier as classifier
 import Module.trainer as trainer
-import Module.processing_data as processing_data
+import Module.processed_dataset as processed_dataset
 import Module.experiment_tool as exp_tool
 import Module.setSeed as setSeed
 import Module.TextPreprocessingPipeline as T_Preprocessor
@@ -46,11 +46,10 @@ T_Preprocessor = T_Preprocessor()
 train_ratio = 0.8
 X_train, X_val, y_train, y_val = train_test_split(reviews, labels, test_size=0.2, random_state=RANDOM_STATE, stratify=labels)
 X_train_processed = T_Preprocessor.fit_transform(reviews)
-X_val_processed = T_Preprocessor.transform(X_val.tolist())
 
 # dataset만 저장, 가중치는 저장 X(다시 사용할 일 없으므로)
 e_tool.d_log(X_train_processed, "X_train_processed")
-e_tool.d_log(X_val_processed, "X_val_processed")
+e_tool.d_log(X_val, "X_val")
 e_tool.d_log(y_train, "X_train_label")
 e_tool.d_log(y_val, "X_val_label")
 
@@ -72,15 +71,15 @@ for i in models:
         max_length= 256
     )
     val_full_encodings = tokenizer(
-        X_val_processed, 
+        X_val, 
         truncation=True, 
         padding='max_length', 
         max_length= 256
     )
     
     # Dataset과 DataLoader 생성
-    train_dataset = processing_data.processed_dataset(train_full_encodings, y_train)
-    test_dataset = processing_data.processed_dataset(val_full_encodings, y_val)
+    train_dataset = processed_dataset.processed_dataset(train_full_encodings, y_train)
+    test_dataset = processed_dataset.processed_dataset(val_full_encodings, y_val)
     train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
     
