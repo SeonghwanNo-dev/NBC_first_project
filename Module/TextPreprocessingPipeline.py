@@ -69,12 +69,12 @@ class TextPreprocessingPipeline:
 
         return text.strip()
 
-    def fit(self, texts, labels=None):
+    def fit(self, texts, labels):
         """학습 데이터로부터 전처리 정보 학습"""
         # 구현 X
         self.is_fitted = True
 
-    def transform(self, texts):
+    def transform(self, texts, labels):
         """전처리 적용"""
         if not self.is_fitted:
             print(
@@ -83,33 +83,31 @@ class TextPreprocessingPipeline:
             return self.basic_preprocess(texts)
             
         # 1. clean_text + normalize
-        preprocessed_texts = self.basic_preprocess(texts)
+        processed_texts_list = self.basic_preprocess(texts)
+        df_train = pd.DataFrame({'review_cleaned': processed_texts_list, 'label': labels})
 
         # 2. 중복 제거
-        duplicates_count = df_processed.duplicated(subset=["review_cleaned", "label"]).sum()
+        initial_count = len(df_train)
+        df_train.drop_duplicates(subset=["review_cleaned", "label"], inplace=True)
+        duplicates_count = initial_count - len(df_train)
         if duplicates_count > 0:
-            df_processed = df_processed.drop_duplicates(subset=["review_cleaned", "label"])
-            print(f"중복 데이터 {duplicates_count}개 제거")
-        else:
-            print("중복 데이터 없음")
+            print(f"[Fit/Transform] 중복 데이터 {duplicates_count}개 제거")
             
-        # 3. 빈 텍스트 제거
-        empty_count = df_processed["review_cleaned"].str.strip().eq("").sum()
+        # 3. 빈 텍스트 제거 (공백만 남은 텍스트 제거)
+        initial_count = len(df_train)
+        df_train = df_train[df_train["review_cleaned"].str.strip().str.len() > 0]
+        empty_count = initial_count - len(df_train)
         if empty_count > 0:
-            df_processed = df_processed[df_processed["review_cleaned"].str.strip() != ""]
-            print(f"빈 텍스트 {empty_count}개 제거")
-        else:
-            print("빈 텍스트 없음")
+            print(f"[Fit/Transform] 빈 텍스트 {empty_count}개 제거")
+
+        # 4. 최종적으로 정제된 텍스트 목록(X_train)과 레이블(y_train) 반환
+        return df_train["review_cleaned"], df_train["label"]
 
 
-        # 4. 대소문자 정규화 (BERT가 처리하지만 일관성을 위해)
-        df_processed["review_normalized"] = df_processed["review_cleaned"].str.lower()
-        return self.basic_preprocess(texts)
-
-    def fit_transform(self, texts, labels=None):
+    def fit_transform(self, texts, labels):
         """학습과 변환을 동시에 수행"""
         self.fit(texts, labels)
-        return self.transform(texts)
+        return self.transform(texts, labels)
 
 
 # 전처리 파이프라인 인스턴스 생성
