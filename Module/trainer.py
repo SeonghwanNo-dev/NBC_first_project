@@ -23,7 +23,7 @@ class Trainer:
         self.classification_head.to(device)
         self.transformer_model.to(device)
 
-    def train(self, train_loader):
+    def train(self, train_loader, epoch):
         
         self.classification_head.train()
         if self.freeze_transformer:
@@ -33,7 +33,7 @@ class Trainer:
 
         total_loss = 0
         
-        for batch in tqdm(train_loader, desc="Training"):
+        for batch_idx, batch in enumerate(tqdm(train_loader, desc="Training")):
             self.optimizer.zero_grad()
 
             with torch.no_grad() if self.freeze_transformer else torch.enable_grad():
@@ -56,6 +56,14 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             
+            log = {
+                "epoch": epoch,
+                "batch_idx": batch_idx,
+                "train_loss": loss.item(),
+                "train_loss/one_epoch": 0, 
+                "test_acc": 0
+            }
+            self.experiment_tool.log(log)
             total_loss += loss.item()
             
         return total_loss / len(train_loader)
@@ -102,16 +110,18 @@ class Trainer:
         print(f"--- 훈련 시작: Epochs={num_epochs} ---")
 
         for epoch in range(num_epochs):
-            train_loss = self.train(train_loader)
+            train_loss = self.train(train_loader, epoch)
             test_accuracy = self.test(test_loader)
             
             train_losses.append(train_loss)
             test_accuracies.append(test_accuracy)
             
             log = {
-            "epoch": epoch,
-            "train_loss": train_loss, 
-            "test_acc": test_accuracy
+                "epoch": epoch,
+                "batch_idx": 0,
+                "train_loss": 0,
+                "train_loss/one_epoch": train_loss, 
+                "test_acc": test_accuracy
             }
             self.experiment_tool.log(log)
         return train_losses, test_accuracies
