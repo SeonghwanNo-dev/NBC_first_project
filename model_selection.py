@@ -5,12 +5,14 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from pathlib import Path
+from sklearn.model_selection import train_test_split
 
 import Module.classifier as classifier
 import Module.trainer as trainer
 import Module.processing_data as processing_data
 import Module.experiment_tool as exp_tool
 import Module.setSeed as setSeed
+import Module.TextPreprocessingPipeline as T_Preprocessor
 
 RANDOM_STATE = 42
 setSeed.set_seed(RANDOM_STATE)
@@ -40,12 +42,17 @@ df = pd.read_csv(file_path, encoding='utf-8')
 reviews = df['review']
 labels = df['label']
 
+T_Preprocessor = T_Preprocessor()
+train_ratio = 0.8
+X_train, X_val, y_train, y_val = train_test_split(reviews, labels, test_size=0.2, random_state=RANDOM_STATE, stratify=labels)
+X_train_processed = T_Preprocessor.fit_transform(reviews)
+X_val_processed = T_Preprocessor.transform(X_val.tolist())
+
 # dataset만 저장, 가중치는 저장 X(다시 사용할 일 없으므로)
-e_tool.d_log(reviews, "input")
-e_tool.d_log(labels, "label")
-
-reviews = reviews.astype(str).tolist()
-
+e_tool.d_log(X_train_processed, "X_train_processed")
+e_tool.d_log(X_val_processed, "X_val_processed")
+e_tool.d_log(y_train, "X_train_label")
+e_tool.d_log(y_val, "X_val_label")
 
 
 # Main Function
@@ -57,17 +64,25 @@ for i in models:
     classification_head = classifier.ClassificationHead(hidden_size=transformer_model.config.hidden_size, num_labels=4).to(DEVICE)
     
     # 2. data encoding 및 DataLoader 생성 (모든 리뷰를 한 번에 처리)
-    full_encodings = tokenizer(
-        reviews, 
+    
+    train_full_encodings = tokenizer(
+        X_train_processed, 
+        truncation=True, 
+        padding='max_length', 
+        max_length= 256
+    )
+    val_full_encodings = tokenizer(
+        X_val_processed, 
         truncation=True, 
         padding='max_length', 
         max_length= 256
     )
     
     # Dataset과 DataLoader 생성
-    total_dataset = processing_data.processed_dataset(full_encodings, labels)
-    train_ratio = 0.8
-    train_loader, test_loader = processing_data.divide_into_TrainAndTest(total_dataset, train_ratio)
+    train_dataset = processing_data.processed_dataset(train_full_encodings, y_train)
+    test_dataset = processing_data.processed_dataset(val_full_encodings, y_val)
+    train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
     
     # 3. Optimizer 설정
     params_to_learn = list(classification_head.parameters())
