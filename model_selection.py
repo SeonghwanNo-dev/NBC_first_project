@@ -34,7 +34,7 @@ CONFIG = {
 e_tool = exp_tool.ExperimentTool(PATH_TO_STORE, PROJECT_NAME, CONFIG)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-models = ["beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
+models = ["klue/roberta-base, klue/bert-base, kykim/bert-kor-base, beomi/kcbert-base, monologg/koelectra-base-v3-discriminator"]
 
 base_dir = Path(__file__).resolve().parent
 file_path = base_dir/'data/train.csv'
@@ -66,8 +66,7 @@ for i in models:
     tokenizer = AutoTokenizer.from_pretrained(i)
     classification_head = classifier.ClassificationHead(hidden_size=transformer_model.config.hidden_size, num_labels=4).to(DEVICE)
     
-    # 2. data encoding 및 DataLoader 생성 (모든 리뷰를 한 번에 처리)
-    
+    # 2. data encoding 및 DataLoader 생성
     train_full_encodings = tokenizer(
         X_train_processed, 
         truncation=True, 
