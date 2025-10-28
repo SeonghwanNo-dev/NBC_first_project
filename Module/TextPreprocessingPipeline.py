@@ -69,12 +69,12 @@ class TextPreprocessingPipeline:
 
         return text.strip()
 
-    def fit(self, texts, labels):
+    def fit(self, texts, labels=None):
         """학습 데이터로부터 전처리 정보 학습"""
         # 구현 X
         self.is_fitted = True
 
-    def transform(self, texts, labels):
+    def transform(self, texts, labels=None):
         """전처리 적용"""
         if not self.is_fitted:
             print(
@@ -84,27 +84,34 @@ class TextPreprocessingPipeline:
             
         # 1. clean_text + normalize
         processed_texts_list = self.basic_preprocess(texts)
-        df_train = pd.DataFrame({'review_cleaned': processed_texts_list, 'label': labels})
+        
+        if labels is None:
+            df_text = pd.DataFrame({'review_cleaned': processed_texts_list})
+        else:
+            df_text = pd.DataFrame({'review_cleaned': processed_texts_list, 'label': labels})
 
         # 2. 중복 제거
-        initial_count = len(df_train)
-        df_train.drop_duplicates(subset=["review_cleaned", "label"], inplace=True)
-        duplicates_count = initial_count - len(df_train)
+        initial_count = len(df_text)
+        df_text.drop_duplicates(subset=["review_cleaned", "label"], inplace=True)
+        duplicates_count = initial_count - len(df_text)
         if duplicates_count > 0:
             print(f"[Fit/Transform] 중복 데이터 {duplicates_count}개 제거")
             
         # 3. 빈 텍스트 제거 (공백만 남은 텍스트 제거)
-        initial_count = len(df_train)
-        df_train = df_train[df_train["review_cleaned"].str.strip().str.len() > 0]
-        empty_count = initial_count - len(df_train)
+        initial_count = len(df_text)
+        df_text = df_text[df_text["review_cleaned"].str.strip().str.len() > 0]
+        empty_count = initial_count - len(df_text)
         if empty_count > 0:
             print(f"[Fit/Transform] 빈 텍스트 {empty_count}개 제거")
 
         # 4. 최종적으로 정제된 텍스트 목록(X_train)과 레이블(y_train) 반환
-        return df_train["review_cleaned"], df_train["label"]
+        if labels is None:
+            return df_text["review_cleaned"]
+        else:
+            return df_text["review_cleaned"], df_text["label"]
 
 
-    def fit_transform(self, texts, labels):
+    def fit_transform(self, texts, labels=None):
         """학습과 변환을 동시에 수행"""
         self.fit(texts, labels)
         return self.transform(texts, labels)
