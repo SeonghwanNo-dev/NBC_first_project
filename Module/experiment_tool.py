@@ -31,7 +31,9 @@ class ExperimentTool:
             log(self, metrics: Dict[str, Any]) -> None: 학습 과정에서 변화하는 Loss, Accuracy 같은 값들을 기록합니다.
             d_log(self, dataset: pd.DataFrame, name: str) -> str: 실험에 사용된 데이터셋을 CSV 형태로 저장합니다.
             w_log(self, model: nn.Module, name: str) -> str: 학습된 모델의 가중치(Weights)를 PyTorch .pth 파일로 저장합니다.
+            f_log(self, features: List[torch.Tensor], name: str) -> str
         """
+        
         # 기본 저장 경로 설정 및 생성 (Pathlib 사용)
         self.project_name = project_name
         self.base_path = Path(path_to_store)/self.project_name
@@ -114,10 +116,32 @@ class ExperimentTool:
         print(f"모델 가중치 저장 완료: {weight_path}")
         return str(weight_path)
     
-    # def d_load(self,):
+    def f_log(self, features: List[torch.Tensor], name: str) -> str:
+        """
+        힌트 레이어 출력(피처 값)을 PyTorch .pt 파일로 저장합니다.
+
+        Args:
+            features: 힌트 레이어별 피처 텐서 리스트 (List[torch.Tensor]).
+            name: 저장할 파일의 기본 이름.
+
+        Returns:
+            저장된 파일의 절대 경로 (str).
+        """
         
-    # def w_load(self,):
-    #     model = AutoModel.from_pretrained(load_path)
+        # 텐서를 CPU로 이동하고 리스트에 담아 저장합니다.
+        # list comprehension을 사용하여 메모리에 남아있는 GPU 텐서를 CPU로 옮깁니다.
+
+        file_name = f"{name}_features.pt"
+        save_path = self.artifact_path / file_name
+
+        try:
+            torch.save(features, save_path)
+            print(f"✅ Feature data saved successfully: {save_path}")
+            return str(save_path)
+            
+        except Exception as e:
+            print(f"❌ Error saving feature data to {save_path}: {e}")
+            return ""
 
 # --------------------------------------------------------------------------------------------------
 # [사용 예시]
