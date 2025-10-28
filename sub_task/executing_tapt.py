@@ -7,14 +7,14 @@ from datasets import Dataset
 import Module.experiment_tool as exp_tool
 import Module.setSeed as setSeed
 import Module.TextPreprocessingPipeline as T_Preprocessor
-import Module.tapt as tapt
+import sub_task.tapt as tapt
 
 RANDOM_STATE = 42
 setSeed.set_seed(RANDOM_STATE)
 
 # tool 사용하기
 PATH_TO_STORE = './results'
-PROJECT_NAME = 'teacher_tapt_v1'
+PROJECT_NAME = 'klue/bert-base_tapt_v1'
 HW_COUNT = torch.cuda.device_count()
 HW_NAME = torch.cuda.get_device_name(0)
 CONFIG = {
@@ -29,7 +29,7 @@ CONFIG = {
 e_tool = exp_tool.ExperimentTool(PATH_TO_STORE, PROJECT_NAME, CONFIG)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = "beomi/kcbert-base"
+model = "klue/bert-base"
 
 # 데이터 로드
 base_dir = Path(__file__).resolve().parent

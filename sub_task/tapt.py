@@ -21,7 +21,7 @@ class tapt:
             output_dir=self.e_tool.artifact_path,
             num_train_epochs=epoch_num,  # TAPT 에폭 (적절한 값 설정 필요)
             per_device_train_batch_size=16,
-            save_steps=3000,                  # 체크포인트 저장 간격
+            save_steps=1000,                  # 체크포인트 저장 간격
             save_total_limit=2,               # 저장할 최대 체크포인트 수
             logging_steps=50,                 # 로그 기록 주기
             prediction_loss_only=True,        # 예측 손실만 계산 (MLM은 주로 손실만 봄)
