@@ -1,4 +1,0 @@
-epoch,train_loss,test_acc,learning_rate,batch_size
-1,0.45,0.75,2e-05,16
-2,0.4,0.7999999999999999,2e-05,16
-3,0.35,0.85,2e-05,16
