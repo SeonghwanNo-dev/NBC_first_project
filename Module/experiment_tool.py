@@ -30,7 +30,7 @@ class ExperimentTool:
             _save_config(self) -> None: 현재 실험 설정을 JSON 파일로 저장합니다.
             log(self, metrics: Dict[str, Any]) -> None: 학습 과정에서 변화하는 Loss, Accuracy 같은 값들을 기록합니다.
             d_log(self, dataset: pd.DataFrame, name: str) -> str: 실험에 사용된 데이터셋을 CSV 형태로 저장합니다.
-           w_log(self, model: nn.Module, name: str) -> str: 학습된 모델의 가중치(Weights)를 PyTorch .pth 파일로 저장합니다.
+            w_log(self, model: nn.Module, name: str) -> str: 학습된 모델의 가중치(Weights)를 PyTorch .pth 파일로 저장합니다.
         """
         # 기본 저장 경로 설정 및 생성 (Pathlib 사용)
         self.project_name = project_name
@@ -67,28 +67,20 @@ class ExperimentTool:
             metrics (Dict[str, Any]): epoch, loss, acc 등의 지표를 담은 딕셔너리.
                 예시: {'epoch': 1, 'train_loss': 0.5, 'test_acc': 0.85}
         """
-        log_data = {
-            "epoch": metrics.get("epoch"),              # 현재 에포크 번호
-            "train_loss": metrics.get("train_loss"),    # 훈련 데이터의 평균 손실
-            "test_acc": metrics.get("test_acc"),        # 검증/테스트 데이터의 정확도
-            "learning_rate": self.config.get("lr"),     # 학습률 (하이퍼파라미터)
-            "batch_size": self.config.get("batch_size"),# 배치 크기 (하이퍼파라미터)
-        }
-        
         # 파일 존재 여부 확인 (헤더 작성 필요 여부 판단)
         file_exists = self.log_file.exists()
 
         # CSV 파일에 데이터 행 추가
         # mode='a' (append)를 사용하지만, 파일이 없으면 생성됨
         with open(self.log_file, mode='a', newline='', encoding='utf-8') as f:
-            fieldnames = log_data.keys()
+            fieldnames = metrics.keys()
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             
             # [수정] 파일이 존재하지 않았다면, 헤더를 먼저 작성합니다.
             if not file_exists:
                 writer.writeheader() 
                 
-            writer.writerow(log_data)
+            writer.writerow(metrics)
     
     def d_log(self, dataset: pd.DataFrame, name: str) -> str:
         """
@@ -121,7 +113,11 @@ class ExperimentTool:
         torch.save(model.state_dict(), weight_path)
         print(f"모델 가중치 저장 완료: {weight_path}")
         return str(weight_path)
-
+    
+    # def d_load(self,):
+        
+    # def w_load(self,):
+    #     model = AutoModel.from_pretrained(load_path)
 
 # --------------------------------------------------------------------------------------------------
 # [사용 예시]
