@@ -65,6 +65,6 @@ tokenized_dataset = tapt_dataset.map(
     num_proc=4, # 병렬 처리로 속도 향상
     remove_columns=["text", "__index_level_0__"]
 )
-tapt_instance = tapt.tapt(model_name=model, tokenizer=tokenizer, epoch_num=3, e_tool=e_tool)
-tapt_instance.train(tokenized_dataset)
-tapt_instance.save()
+tapt_instance = tapt.tapt(model_name=model, tokenizer=tokenizer, e_tool=e_tool)
+tapt_instance.train(dataset=tokenized_dataset, epoch_num=3)
+tapt_instance.save("tapted_teacher")
