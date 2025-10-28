@@ -92,7 +92,10 @@ class TextPreprocessingPipeline:
 
         # 2. 중복 제거
         initial_count = len(df_text)
-        df_text.drop_duplicates(subset=["review_cleaned", "label"], inplace=True)
+        if labels is None:
+            df_text.drop_duplicates(subset=["review_cleaned"], inplace=True)
+        else:
+            df_text.drop_duplicates(subset=["review_cleaned", "label"], inplace=True)
         duplicates_count = initial_count - len(df_text)
         if duplicates_count > 0:
             print(f"[Fit/Transform] 중복 데이터 {duplicates_count}개 제거")

@@ -7,14 +7,14 @@ from datasets import Dataset
 import Module.experiment_tool as exp_tool
 import Module.setSeed as setSeed
 import Module.TextPreprocessingPipeline as T_Preprocessor
-import sub_task.tapt as tapt
+import Module.tapt as tapt
 
 RANDOM_STATE = 42
 setSeed.set_seed(RANDOM_STATE)
 
 # tool 사용하기
 PATH_TO_STORE = './results'
-PROJECT_NAME = 'klue/bert-base_tapt_v1'
+PROJECT_NAME = 'klue_bert-base_tapt_v1'
 HW_COUNT = torch.cuda.device_count()
 HW_NAME = torch.cuda.get_device_name(0)
 CONFIG = {
@@ -63,8 +63,10 @@ tokenized_dataset = tapt_dataset.map(
     tokenize_function, 
     batched=True,
     num_proc=4, # 병렬 처리로 속도 향상
-    remove_columns=["text", "__index_level_0__"]
+    remove_columns=["text"]
 )
 tapt_instance = tapt.tapt(model_name=model, tokenizer=tokenizer, e_tool=e_tool)
-tapt_instance.train(dataset=tokenized_dataset, epoch_num=3)
+# tapt_instance.train(dataset=tokenized_dataset, epoch_num=3)
+resume_from_checkpoint_path = f"{e_tool.artifact_path}/checkpoint-37000"
+tapt_instance.train(dataset=tokenized_dataset, resume_from_checkpoint=resume_from_checkpoint_path, epoch_num=3)
 tapt_instance.save("tapted_teacher")

@@ -9,7 +9,7 @@ class tapt:
         self.e_tool = e_tool
         self.trainer = 0 # train 메서드에서 할당
 
-    def train(self, dataset, epoch_num):
+    def train(self, dataset, epoch_num, resume_from_checkpoint=None):
         data_collator = DataCollatorForLanguageModeling(
         tokenizer=self.tokenizer, 
         mlm=True, 
@@ -26,17 +26,23 @@ class tapt:
             logging_steps=50,                 # 로그 기록 주기
             prediction_loss_only=True,        # 예측 손실만 계산 (MLM은 주로 손실만 봄)
             learning_rate=1e-5,               # 미세 조정(Fine-tuning)보다 낮은 학습률 사용
-            logging_dir=self.e_tool.log_file,
+            logging_dir=self.e_tool.base_path,
         )
         
         self.trainer = Trainer(
-        model=self.model,
-        args=training_args,
-        train_dataset=dataset,
-        data_collator=data_collator,
-        )
-        self.trainer.train()
+            model=self.model,
+            args=training_args,
+            train_dataset=dataset,
+            data_collator=data_collator,
+            )
+        
+        if resume_from_checkpoint is None:
+            self.trainer.train()
+        else: 
+            self.trainer.train(resume_from_checkpoint=resume_from_checkpoint)
         
     # 최종 학습된 모델의 가중치만 저장
     def save(self, file_name):
+        file_name = self.e_tool.artifact_path/file_name
         self.trainer.save_model(file_name)
+    
