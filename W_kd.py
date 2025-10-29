@@ -14,19 +14,19 @@ import Module.classifier as classifier
 import Module.white_kd as w_kd
 import Module.kd_trainer as kd_trainer
 
-# 1. 모델 아키텍쳐 확인
-models = ["kakaocorp/kanana-1.5-8b-base", "klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
-# 1.1 가중치 없이 설정 파일만 다운로드하고 로드
-# config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-for i in models:
-    config = AutoConfig.from_pretrained(i, trust_remote_code=True)
-    # 1.2 구조 정보 확인
-    # 총 레이어 수 (Transformer 블록 수)
-    num_layers = config.num_hidden_layers
-    # 피처 개수 (Hidden Size, 각 레이어의 출력 차원)
-    hidden_size = config.hidden_size
-    print(f"{i}, Total Layers (num_hidden_layers): {num_layers}")
-    print(f"{i}, Feature Size (hidden_size): {hidden_size}")
+# # 1. 모델 아키텍쳐 확인
+# models = ["kakaocorp/kanana-1.5-8b-base", "klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
+# # 1.1 가중치 없이 설정 파일만 다운로드하고 로드
+# # config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+# for i in models:
+#     config = AutoConfig.from_pretrained(i, trust_remote_code=True)
+#     # 1.2 구조 정보 확인
+#     # 총 레이어 수 (Transformer 블록 수)
+#     num_layers = config.num_hidden_layers
+#     # 피처 개수 (Hidden Size, 각 레이어의 출력 차원)
+#     hidden_size = config.hidden_size
+#     print(f"{i}, Total Layers (num_hidden_layers): {num_layers}")
+#     print(f"{i}, Feature Size (hidden_size): {hidden_size}")
     
 """
 - Teacher
@@ -73,7 +73,7 @@ e_tool = exp_tool.ExperimentTool(PATH_TO_STORE, PROJECT_NAME, CONFIG)
 
 # dataset 가져오기
 base_dir = Path(__file__).resolve().parent
-file_path = base_dir/'data/train.csv'
+file_path = '/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/train.csv'
 df = pd.read_csv(file_path, encoding='utf-8')
 reviews = df['review']
 labels = df['label']

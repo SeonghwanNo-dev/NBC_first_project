@@ -1,9 +1,6 @@
 import pandas as pd  # 데이터 처리 및 분석
 import re  # 정규 표현식
 
-df = pd.read_csv("data/train.csv")
-df_processed = df[["ID", "label", "review"]].copy()
-
 
 # 텍스트 전처리 파이프라인 클래스 구성
 class TextPreprocessingPipeline:
