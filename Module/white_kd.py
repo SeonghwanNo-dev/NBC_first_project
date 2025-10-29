@@ -7,6 +7,9 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
     # 각 배치의 피처 리스트 (teacher_features)와 소프트 레이블 리스트 (teacher_soft_labels)를 담을 리스트
     teacher_features_batches = []
     teacher_soft_labels_batches = []
+    
+    total_correct = 0
+    total_samples = 0
 
     model.eval() # 모델을 반드시 평가 모드로 설정
     
@@ -16,6 +19,7 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
             # model.device를 사용하면, 모델이 로드된 디바이스(들)를 자동으로 따라갑니다.
             input_ids = batch['input_ids'].to(model.device)
             attention_mask = batch['attention_mask'].to(model.device)
+            labels = batch['labels'].to(model.device)
             
             # 모델 포워드 (Logits 및 Hidden States 추출)
             outputs = model(
@@ -37,12 +41,25 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
             hint_features = [hidden_states[i].cpu() for i in T_hint_layers]
             teacher_features_batches.append(hint_features)
             
+            # 3. 정확도 측정 로직 추가
+            predictions = soft_labels.argmax(dim=-1)
+            target_labels = labels
+            # 예측과 정답 비교
+            correct_predictions = (predictions == target_labels).sum().item()
+            total_correct += correct_predictions
+            total_samples += target_labels.size(0)
+            
     # --- 데이터 정리 및 저장 ---
+    
+    # 1. 전체 데이터셋에 대한 정확도 계산
+    total_accuracy = total_correct / total_samples if total_samples > 0 else 0.0
+    log = {"teacher_total_accuracy": total_accuracy}
+    e_tool.log(log)
 
-    # 1. 소프트 레이블 합치기: 모든 배치의 소프트 레이블 텐서를 하나로 합칩니다.
+    # 2. 소프트 레이블 합치기: 모든 배치의 소프트 레이블 텐서를 하나로 합칩니다.
     final_soft_labels = torch.cat(teacher_soft_labels_batches, dim=0)
 
-    # 2. 피처 합치기: T_hint_layers의 각 레이어별로 모든 배치의 피처를 합칩니다.
+    # 3. 피처 합치기: T_hint_layers의 각 레이어별로 모든 배치의 피처를 합칩니다.
     # 최종 결과: [T_hint_layers의 길이] x [전체 데이터 수] x [시퀀스 길이] x [히든 사이즈] 텐서 목록
     final_teacher_features = []
     num_hint_layers = len(T_hint_layers)
@@ -52,7 +69,7 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
         layer_features = torch.cat([batch_features[i] for batch_features in teacher_features_batches], dim=0)
         final_teacher_features.append(layer_features)
         
-    # 3. e_tool을 사용하여 저장
+    # 4. e_tool을 사용하여 저장
     # final_teacher_features는 리스트
     
     # 리스트 자체를 저장하거나, 각 레이어별로 저장하도록 구현할 수 있습니다.
@@ -61,6 +78,8 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
 
     print(f"✅ 소프트 레이블 추출 완료. 전체 크기: {final_soft_labels.shape}")
     print(f"✅ 피처 추출 완료. {len(final_teacher_features)}개 레이어 저장.")
+    
+    
     
     
     
