@@ -1,6 +1,7 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel, AutoConfig
 import torch
 import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import DataLoader
 from pathlib import Path
 import pandas as pd
@@ -91,6 +92,7 @@ t_model_name = "kakaocorp/kanana-1.5-8b-base"
 t_model = AutoModelForCausalLM.from_pretrained(
     t_model_name, 
     trust_remote_code=True, 
+    load_in_8bit=True,  
     device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
     torch_dtype=torch.float16,      # float8 지원 안 해서 float16으로 rollback
     output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
