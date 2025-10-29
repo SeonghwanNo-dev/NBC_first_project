@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import Dict, List, Tuple
-import Hint_layer_projector
+from .Hint_layer_projector import HintProjector
 
 def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
     # 각 배치의 피처 리스트 (teacher_features)와 소프트 레이블 리스트 (teacher_soft_labels)를 담을 리스트
@@ -62,6 +62,8 @@ def extract_from_teacher(train_loader, model, T_hint_layers, e_tool):
     print(f"✅ 소프트 레이블 추출 완료. 전체 크기: {final_soft_labels.shape}")
     print(f"✅ 피처 추출 완료. {len(final_teacher_features)}개 레이어 저장.")
     
+    
+    
 def distillation_loss(teacher_logits: torch.Tensor, student_logits: torch.Tensor, T: float) -> torch.Tensor:
     """
     Soft Label을 이용한 Distillation Loss (Temperature-scaled Cross-Entropy)를 계산합니다.
@@ -95,98 +97,63 @@ def distillation_loss(teacher_logits: torch.Tensor, student_logits: torch.Tensor
     # T^2를 곱하여 KL Div Loss의 크기를 정규화합니다.
     return kl_loss * (T * T)
 
-def set_training_layers(model: nn.Module, layers_to_unfreeze: List[int] = None):
-    """
-    Student Model의 특정 레이어(블록)만 학습 가능하도록 설정합니다 (Fine-tuning Layering).
-    
-    Args:
-        model (nn.Module): Student Classifier 모델 인스턴스.
-        layers_to_unfreeze (List[int]): 학습을 허용할 Transformer 인코더 레이어의 인덱스 목록 (예: [9, 10, 11])
-    """
-    
-    # 1. 모든 파라미터를 기본적으로 동결(Freeze)
-    for name, param in model.named_parameters():
-        param.requires_grad = False
-    
-    # 2. 분류기 헤드(Classifier Head) 파라미터는 항상 학습 허용
-    # AutoModelForSequenceClassification의 분류기 레이어는 보통 'classifier'에 속합니다.
-    for name, param in model.named_parameters():
-        if 'classifier' in name:
-            param.requires_grad = True
 
-    # 3. 지정된 Transformer 인코더 레이어만 동결 해제 (Unfreeze)
-    if layers_to_unfreeze:
-        # 인코더 레이어는 'bert.encoder.layer.[i]'와 같은 패턴을 가집니다.
-        # (RoBERTa의 경우 model.roberta.encoder.layer.[i] 등)
-        for layer_idx in layers_to_unfreeze:
-            # 패턴 매칭 (이름에 레이어 인덱스가 포함된 모든 파라미터 찾기)
-            layer_pattern = f'.layer.{layer_idx}.' 
+
+    
+
+class StudentWithProjector(nn.Module):
+    def __init__(self, S_model, S_hint_layers: list, t_dim: int, s_dim: int, middle_dim: int, classifier):
+        super().__init__()
+        # 1. 학생 모델 (예시: BERT Encoder)
+        # Hugging Face 모델 사용 시 output_hidden_states=True 필수
+        self.S_model = S_model
+        
+        # 2. 피처를 추출할 레이어 인덱스
+        self.S_hint_layers = S_hint_layers # [1, 4, 8, 12]
+        
+        # 3. 각 추출 레이어마다 별도의 Projector 정의 (ModuleList 사용)
+        self.projectors = nn.ModuleList([
+            HintProjector(s_dim, t_dim, middle_dim)
+            for _ in range(len(self.S_hint_layers))
+        ])
+        self.classifier = classifier
+        
+    
+    # forward 함수의 역할 (순전파)  
+    # 입력 데이터를 받아 예측값을 계산하고 반환하는 역할만 수행
+    def forward(self, input_ids, attention_mask):
+        
+        # BERT 모델 실행
+        # output_hidden_states=True로 설정했으므로 hidden_states를 반환함
+        outputs = self.S_model(input_ids=input_ids, attention_mask=attention_mask)
+        
+        # hidden_states는 (Embedding + 12개 레이어 출력) 리스트입니다.
+        hidden_states = outputs.hidden_states
+        
+        # KD 피처 리스트 초기화
+        kd_features = []
+        
+        # 원하는 레이어의 출력을 추출하고 Projector에 통과시킴
+        for i, layer_idx in enumerate(self.S_hint_layers):
+            # 1. 트랜스포머 블록의 출력(F_S) 추출
+            student_feature = hidden_states[layer_idx] # (Batch Size, Sequence Length, S_dim)
+            # 2. Projector에 통과시켜 F_KD 획득
+            projected_feature = self.projectors[i](student_feature) # (Batch Size, Sequence Length, T_dim)
+            kd_features.append(projected_feature)
             
-            for name, param in model.named_parameters():
-                if layer_pattern in name:
-                    param.requires_grad = True
-                    print(f"동결 해제: {name}") # 디버깅용
-                    
-                    
-                
-class white_kd_pipeline:
-    def __init__(self, model, labels, hint_layer_projector):
-        self.model = model
+        student_soft_labels = outputs.logits[:, -1, :] 
+        cls_feature = outputs.last_hidden_state[:, 0, :]
+        logits = self.classifier(cls_feature)
         
-        self.criterion = nn.CrossEntropyLoss()
-        self.s_output
-        self.labels = labels
         
-        self.s_logits
-        self.t_logits
+        # 반환: KD Loss 계산에 필요한 피처 리스트와 최종 분류 출력
+        return kd_features, student_soft_labels, logits
+
+
         
-        self.hint_layer_projector = hint_layer_projector
-        
-    def get_student_loss(self):
-        return self.criterion(self.s_output['logits'], self.labels)
-    
-    def get_distillation_loss(self):
-        return distillation_loss(teacher_logits=self.t_logits, student_logits=self.s_logits, T=2)
-    
-    def get_feature_loss(self):
-        total_feature_loss = torch.tensor(0.0)
-        num_hint_pairs = len(self.t_hint_layers)
-        
-        # T와 S의 힌트 레이어 쌍을 순회하며 MSE Loss를 누적
-        for i, t_layer_idx in enumerate(self.t_hint_layers):
-            s_layer_idx = self.s_hint_layers[i]
-            t_feature = self.t_output['hidden_states'][t_layer_idx]
-            s_feature = self.s_output['hidden_states'][s_layer_idx]
-            
-            projector = self.hint_layer_projector[str(t_layer_idx)]
-            t_feature_projected = projector(t_feature)
-            total_feature_loss += self.mse_loss(s_feature, t_feature_projected)
-            
-        avg_feature_loss = total_feature_loss / num_hint_pairs
-        return avg_feature_loss
-    
-    
-    def calculate_total_loss(self, 
-                             alpha_feature: float, 
-                             alpha_distill: float, 
-                             alpha_student: float, 
-                             T: float = 2.0) -> torch.Tensor:
-        """
-        주어진 가중치에 따라 모든 Loss를 합산하여 최종 손실을 계산합니다.
-        """
-        
-        loss_components = {
-            'feature': self.get_feature_loss(),
-            'distillation': self.get_distillation_loss(T=T),
-            'student': self.get_student_loss()
-        }
-        
-        # 가중치 적용 및 합산
-        total_loss = (alpha_feature * loss_components['feature'] + 
-                      alpha_distill * loss_components['distillation'] + 
-                      alpha_student * loss_components['student'])
-        
-        return total_loss
-    
-    
+# class white_kd_pipeline:
+#     def __init__(self):
+#         self.model
+#     def run(self):
+#         self.model = StudentWithProjector(S_model = , S_hint_layers: list, t_dim: int, s_dim: int, middle_dim: int, classifier)
     
