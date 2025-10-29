@@ -93,7 +93,7 @@ t_model = AutoModelForCausalLM.from_pretrained(
     t_model_name, 
     trust_remote_code=True, 
     device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
-    torch_dtype=torch.float16,      # 메모리 절약을 위한 16비트 정밀도 사용 (필수)
+    torch_dtype=torch.float8,      # 메모리 절약을 위한 8비트 정밀도 사용
     output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
 )
 t_tokenizer = AutoTokenizer.from_pretrained(t_model_name)
