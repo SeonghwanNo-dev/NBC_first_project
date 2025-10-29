@@ -1,7 +1,6 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel, AutoConfig
 import torch
 import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader
 from pathlib import Path
 import pandas as pd
@@ -15,36 +14,36 @@ import Module.classifier as classifier
 import Module.white_kd as w_kd
 import Module.kd_trainer as kd_trainer
 
-# # 1. 모델 아키텍쳐 확인
-# models = ["naver-hyperclovax/HyperCLOVAX-SEED-Think-14B", "klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
-# # 1.1 가중치 없이 설정 파일만 다운로드하고 로드
+# 1. 모델 아키텍쳐 확인
+models = ["kakaocorp/kanana-1.5-8b-base", "klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
+# 1.1 가중치 없이 설정 파일만 다운로드하고 로드
 # config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-# for i in models:
-#     config = AutoConfig.from_pretrained(i, trust_remote_code=True)
-#     # 1.2 구조 정보 확인
-#     # 총 레이어 수 (Transformer 블록 수)
-#     num_layers = config.num_hidden_layers
-#     # 피처 개수 (Hidden Size, 각 레이어의 출력 차원)
-#     hidden_size = config.hidden_size
-#     print(f"{i}, Total Layers (num_hidden_layers): {num_layers}")
-#     print(f"{i}, Feature Size (hidden_size): {hidden_size}")
+for i in models:
+    config = AutoConfig.from_pretrained(i, trust_remote_code=True)
+    # 1.2 구조 정보 확인
+    # 총 레이어 수 (Transformer 블록 수)
+    num_layers = config.num_hidden_layers
+    # 피처 개수 (Hidden Size, 각 레이어의 출력 차원)
+    hidden_size = config.hidden_size
+    print(f"{i}, Total Layers (num_hidden_layers): {num_layers}")
+    print(f"{i}, Feature Size (hidden_size): {hidden_size}")
     
 """
 - Teacher
-Total Layers (num_hidden_layers): 38
-Feature Size (hidden_size): 6144
+Total Layers (num_hidden_layers): 32
+Feature Size (hidden_size): 4096
 
 - Student
   Total Layers (num_hidden_layers): 12
   Feature Size (hidden_size): 768
 """
-teacher_hidden_dimension=6144
+teacher_hidden_dimension=4096
 student_hidden_dimension=768
-teacher_layer_num=38
+teacher_layer_num=32
 student_layer_num=12
 # 0번째 hindden layer는 아직 트랜스포머를 거치기 전, 막 인코딩 됐을 때
-# 따라서 1 to 38(or 12)까지 존재함.
-T_hint_layers = [1, 13, 25, 38] 
+# 따라서 1 to 32(or 12)까지 존재함.
+T_hint_layers = [1, 11, 21, 32] 
 S_hint_layers = [1, 4, 8, 12]
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -59,13 +58,13 @@ HW_NAME = torch.cuda.get_device_name(0)
 CONFIG = {
     "seed": RANDOM_STATE,
     "batch_size": 1, 
-    "teacher_models": "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B",
+    "teacher_models": "kakaocorp/kanana-1.5-8b-base",
     "student_models": "klue/bert-base",
     "teacher_demension": teacher_hidden_dimension,
     "student_dimension": student_hidden_dimension,
     "teacher_layer_num": teacher_layer_num,
     "student_layer_num": student_layer_num,
-    "teacher_hint_layers":"1, 13, 25, 38",
+    "teacher_hint_layers":"1, 11, 21, 32",
     "student_hint_layers":"1, 4, 8, 12",
     "device_name": HW_NAME,
     "device_count": HW_COUNT,
@@ -88,12 +87,12 @@ X_train_processed = X_train_processed.tolist()
 y_train = y_train.tolist()
 
 # 1. transformer_model <- Teacher Model
-t_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B"
+t_model_name = "kakaocorp/kanana-1.5-8b-base"
 t_model = AutoModelForCausalLM.from_pretrained(
     t_model_name, 
     trust_remote_code=True, 
     device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
-    torch_dtype=torch.float8,      # 메모리 절약을 위한 8비트 정밀도 사용
+    torch_dtype=torch.float16,      # float8 지원 안 해서 float16으로 rollback
     output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
 )
 t_tokenizer = AutoTokenizer.from_pretrained(t_model_name)
@@ -149,18 +148,18 @@ Distillation 전략
 3. Distillation 전략을 파이프라인으로 구현하기
 '''
 
-clf = classifier.ClassificationHead(hidden_size=student_hidden_dimension, num_labels=4, inner_dim=256)
-# classifier만 직접 전달해주고, projector는 StudentWithProjector에서 스스로 만든다.
-model = w_kd.StudentWithProjector(S_model= s_model, S_hint_layers=S_hint_layers, t_dim=teacher_hidden_dimension, s_dim = student_hidden_dimension, middle_dim = 4096, classifier=clf)
+# clf = classifier.ClassificationHead(hidden_size=student_hidden_dimension, num_labels=4, inner_dim=256)
+# # classifier만 직접 전달해주고, projector는 StudentWithProjector에서 스스로 만든다.
+# model = w_kd.StudentWithProjector(S_model= s_model, S_hint_layers=S_hint_layers, t_dim=teacher_hidden_dimension, s_dim = student_hidden_dimension, middle_dim = 4096, classifier=clf)
 
-params_to_learn = list(model.parameters())
-optimizer = optim.AdamW(params=params_to_learn, lr=2e-5)
-criterion = nn.CrossEntropyLoss()
-teacher_soft_labels=0
-t_features=0
-kd_trainer_instance = kd_trainer.Trainer(experiment_tool=e_tool, teacher_soft_labels = teacher_soft_labels, t_features=t_features, StudentWithProjector_model=model, criterion=criterion, optimizer=optimizer, device=DEVICE)
+# params_to_learn = list(model.parameters())
+# optimizer = optim.AdamW(params=params_to_learn, lr=2e-5)
+# criterion = nn.CrossEntropyLoss()
+# teacher_soft_labels=0
+# t_features=0
+# kd_trainer_instance = kd_trainer.Trainer(experiment_tool=e_tool, teacher_soft_labels = teacher_soft_labels, t_features=t_features, StudentWithProjector_model=model, criterion=criterion, optimizer=optimizer, device=DEVICE)
 
-transformer_layers_to_freeze = [0,1,2,3] # 0 to 11 까지 존재
-projector_layers_to_learn = [0,1]
-alpha = [0, 0.5, 0.5] # loss = alpha[0]*student_loss + alpha[1]*distillation_loss + alpha[2]*feature_loss
-kd_trainer_instance.train(train_loader=train_loader, epoch = 1, transformer_layers_to_freeze=transformer_layers_to_freeze, projector_layers_to_learn=projector_layers_to_learn, alpha=alpha)
+# transformer_layers_to_freeze = [0,1,2,3] # 0 to 11 까지 존재
+# projector_layers_to_learn = [0,1]
+# alpha = [0, 0.5, 0.5] # loss = alpha[0]*student_loss + alpha[1]*distillation_loss + alpha[2]*feature_loss
+# kd_trainer_instance.train(train_loader=train_loader, epoch = 1, transformer_layers_to_freeze=transformer_layers_to_freeze, projector_layers_to_learn=projector_layers_to_learn, alpha=alpha)
