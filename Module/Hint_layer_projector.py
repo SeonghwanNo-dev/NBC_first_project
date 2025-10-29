@@ -1,27 +1,22 @@
 import torch.nn as nn
-import torch
 
 class HintProjector(nn.Module):
     """
     Teacher와 Student 모델의 히든 스테이트 차원이 다를 때,
     차원을 일치시키기 위한 선형 변환(Projection) 레이어입니다.
     """
-    def __init__(self, t_dim: int, s_dim: int):
-        """
-        Args:
-            t_dim (int): Teacher Model의 Hidden State 차원.
-            s_dim (int): Student Model의 Hidden State 차원.
-        """
+    def __init__(self, t_dim: int, s_dim: int, middle_dim:int):
         super().__init__()
-        # Teacher의 특징 차원을 Student의 특징 차원에 맞춥니다.
-        # Student Feature <- Teacher Feature @ W_h
-        self.projection = nn.Linear(t_dim, s_dim)
+        # MLP 헤드 정의 (흔히 ReLU와 Dropout을 포함)
+        self.projector = nn.Sequential(
+            nn.Linear(s_dim, middle_dim), # D -> 중간 차원
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(middle_dim, t_dim)
+        )
 
-    def forward(self, t_feature: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            t_feature (torch.Tensor): Teacher Model의 Hint Layer 출력 (batch_size, seq_len, t_dim).
-        Returns:
-            torch.Tensor: 차원이 조정된 특징 벡터 (batch_size, seq_len, s_dim).
-        """
-        return self.projection(t_feature)
+    def forward(self, transformer_output):
+        
+        # 프로젝터에 통과시켜 최종 로짓(logits) 얻기
+        projected_output = self.projector(transformer_output)
+        return projected_output
