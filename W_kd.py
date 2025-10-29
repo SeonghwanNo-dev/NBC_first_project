@@ -88,22 +88,22 @@ X_train_processed = X_train_processed.tolist()
 y_train = y_train.tolist()
 
 # 1. transformer_model <- Teacher Model
-# model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B"
-# model = AutoModelForCausalLM.from_pretrained(
-#     model_name, 
-#     trust_remote_code=True, 
-#     device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
-#     torch_dtype=torch.float16,      # 메모리 절약을 위한 16비트 정밀도 사용 (필수)
-#     output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
-# )
-# tokenizer = AutoTokenizer.from_pretrained(model_name)
+t_model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B"
+t_model = AutoModelForCausalLM.from_pretrained(
+    t_model_name, 
+    trust_remote_code=True, 
+    device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
+    torch_dtype=torch.float16,      # 메모리 절약을 위한 16비트 정밀도 사용 (필수)
+    output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
+)
+t_tokenizer = AutoTokenizer.from_pretrained(t_model_name)
 
-# # CLM 모델은 패딩 토큰 설정이 필요함
-# if tokenizer.pad_token is None:
-#     tokenizer.pad_token = tokenizer.eos_token
-# model.eval() # 피처 추출은 평가 모드로 실행
+# CLM 모델은 패딩 토큰 설정이 필요함
+if t_tokenizer.pad_token is None:
+    t_tokenizer.pad_token = t_tokenizer.eos_token
+t_model.eval() # 피처 추출은 평가 모드로 실행
     
-# 1. transformer_model <- Student Model
+# transformer_model <- Student Model
 s_model = AutoModel.from_pretrained("klue/bert-base")
 tokenizer = AutoTokenizer.from_pretrained("klue/bert-base")
 
@@ -124,7 +124,7 @@ train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
 
 
 # 3. Teacher Model에서 hint_layers와 soft_label 추출
-# w_kd_instance = w_kd.extract_from_teacher(train_loader=train_loader, model=model, T_hint_layers=T_hint_layers, e_tool=e_tool)
+w_kd_instance = w_kd.extract_from_teacher(train_loader=train_loader, model=t_model, T_hint_layers=T_hint_layers, e_tool=e_tool)
 
 # 4. 추출된 값으로부터 Student Model 학습하기
 
