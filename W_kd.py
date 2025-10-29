@@ -1,24 +1,27 @@
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import pandas as pd
+from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 import torch
+import torch.nn as nn
+import torch.optim as optim
 from torch.utils.data import DataLoader
 from pathlib import Path
-
+import pandas as pd
 
 import Module.processed_dataset as processed_dataset
 import Module.experiment_tool as exp_tool
 import Module.setSeed as setSeed
 import Module.TextPreprocessingPipeline as T_Preprocessor
+
+import Module.classifier as classifier
 import Module.white_kd as w_kd
+import Module.kd_trainer as kd_trainer
 
-
-# # 모델 아키텍쳐 확인
+# # 1. 모델 아키텍쳐 확인
 # models = ["naver-hyperclovax/HyperCLOVAX-SEED-Think-14B", "klue/roberta-base", "klue/bert-base", "kykim/bert-kor-base", "beomi/kcbert-base", "monologg/koelectra-base-v3-discriminator"]
-# # 1. 가중치 없이 설정 파일만 다운로드하고 로드
+# # 1.1 가중치 없이 설정 파일만 다운로드하고 로드
 # config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
 # for i in models:
 #     config = AutoConfig.from_pretrained(i, trust_remote_code=True)
-#     # 2. 구조 정보 확인
+#     # 1.2 구조 정보 확인
 #     # 총 레이어 수 (Transformer 블록 수)
 #     num_layers = config.num_hidden_layers
 #     # 피처 개수 (Hidden Size, 각 레이어의 출력 차원)
@@ -35,6 +38,15 @@ Feature Size (hidden_size): 6144
   Total Layers (num_hidden_layers): 12
   Feature Size (hidden_size): 768
 """
+teacher_hidden_dimension=6144
+student_hidden_dimension=768
+teacher_layer_num=38
+student_layer_num=12
+# 0번째 hindden layer는 아직 트랜스포머를 거치기 전, 막 인코딩 됐을 때
+# 따라서 1 to 38(or 12)까지 존재함.
+T_hint_layers = [1, 13, 25, 38] 
+S_hint_layers = [1, 4, 8, 12]
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RANDOM_STATE = 42
 setSeed.set_seed(RANDOM_STATE)
@@ -47,17 +59,20 @@ HW_NAME = torch.cuda.get_device_name(0)
 CONFIG = {
     "seed": RANDOM_STATE,
     "batch_size": 1, 
-    "models": "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B",
+    "teacher_models": "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B",
+    "student_models": "klue/bert-base",
+    "teacher_demension": teacher_hidden_dimension,
+    "student_dimension": student_hidden_dimension,
+    "teacher_layer_num": teacher_layer_num,
+    "student_layer_num": student_layer_num,
+    "teacher_hint_layers":"1, 13, 25, 38",
+    "student_hint_layers":"1, 4, 8, 12",
     "device_name": HW_NAME,
     "device_count": HW_COUNT,
-    "To_Store":"T_hint_layers, Soft_label",
-    "T_hint_layers":"1, 13, 25, 38"
 }
 e_tool = exp_tool.ExperimentTool(PATH_TO_STORE, PROJECT_NAME, CONFIG)
 
-T_hint_layers = [1, 13, 25, 38]
-S_hint_layers = [1, 4, 8, 12]
-
+# dataset 가져오기
 base_dir = Path(__file__).resolve().parent
 file_path = base_dir/'data/train.csv'
 df = pd.read_csv(file_path, encoding='utf-8')
@@ -72,22 +87,26 @@ e_tool.d_log(X_train_processed, "X_train_processed")
 X_train_processed = X_train_processed.tolist()
 y_train = y_train.tolist()
 
-# 1. transformer_model
-model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B"
-model = AutoModelForCausalLM.from_pretrained(
-    model_name, 
-    trust_remote_code=True, 
-    device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
-    torch_dtype=torch.float16,      # 메모리 절약을 위한 16비트 정밀도 사용 (필수)
-    output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
-)
-tokenizer = AutoTokenizer.from_pretrained(model_name)
+# 1. transformer_model <- Teacher Model
+# model_name = "naver-hyperclovax/HyperCLOVAX-SEED-Think-14B"
+# model = AutoModelForCausalLM.from_pretrained(
+#     model_name, 
+#     trust_remote_code=True, 
+#     device_map="auto",              # 다중 GPU 로드 또는 CPU 오프로딩
+#     torch_dtype=torch.float16,      # 메모리 절약을 위한 16비트 정밀도 사용 (필수)
+#     output_hidden_states=True       # KD 피처 추출을 위해 hidden_states 출력을 명시
+# )
+# tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-# CLM 모델은 패딩 토큰 설정이 필요함
-if tokenizer.pad_token is None:
-    tokenizer.pad_token = tokenizer.eos_token
-model.eval() # 피처 추출은 평가 모드로 실행
+# # CLM 모델은 패딩 토큰 설정이 필요함
+# if tokenizer.pad_token is None:
+#     tokenizer.pad_token = tokenizer.eos_token
+# model.eval() # 피처 추출은 평가 모드로 실행
     
+# 1. transformer_model <- Student Model
+s_model = AutoModel.from_pretrained("klue/bert-base")
+tokenizer = AutoTokenizer.from_pretrained("klue/bert-base")
+
 
 # 2. data encoding -> dataset -> DataLoader 생성
 # tokenizer로 encoding 생성
@@ -103,11 +122,11 @@ train_dataset = processed_dataset.processed_dataset(train_full_encodings, y_trai
 # 14B 모델에서 batch_size=256은 불가능
 train_loader = DataLoader(train_dataset, batch_size=1, shuffle=False)
 
+
 # 3. Teacher Model에서 hint_layers와 soft_label 추출
-w_kd_instance = w_kd.extract_from_teacher(train_loader=train_loader, model=model, T_hint_layers=T_hint_layers, e_tool=e_tool)
+# w_kd_instance = w_kd.extract_from_teacher(train_loader=train_loader, model=model, T_hint_layers=T_hint_layers, e_tool=e_tool)
 
 # 4. 추출된 값으로부터 Student Model 학습하기
-
 
 '''
 KD 학습을 처리할 클래스에는 세 가지 유형의 손실 함수가 필요하다.
@@ -128,7 +147,20 @@ Distillation 전략
 1. 각각의 loss function
 2. feature 차원이 안 맞으므로 W 레이어 붙이기 모듈로 만들어서 붙이기
 3. Distillation 전략을 파이프라인으로 구현하기
-
-
-
 '''
+
+clf = classifier.ClassificationHead(hidden_size=student_hidden_dimension, num_labels=4, inner_dim=256)
+# classifier만 직접 전달해주고, projector는 StudentWithProjector에서 스스로 만든다.
+model = w_kd.StudentWithProjector(S_model= s_model, S_hint_layers=S_hint_layers, t_dim=teacher_hidden_dimension, s_dim = student_hidden_dimension, middle_dim = 4096, classifier=clf)
+
+params_to_learn = list(model.parameters())
+optimizer = optim.AdamW(params=params_to_learn, lr=2e-5)
+criterion = nn.CrossEntropyLoss()
+teacher_soft_labels=0
+t_features=0
+kd_trainer_instance = kd_trainer.Trainer(experiment_tool=e_tool, teacher_soft_labels = teacher_soft_labels, t_features=t_features, StudentWithProjector_model=model, criterion=criterion, optimizer=optimizer, device=DEVICE)
+
+transformer_layers_to_freeze = [0,1,2,3] # 0 to 11 까지 존재
+projector_layers_to_learn = [0,1]
+alpha = [0, 0.5, 0.5] # loss = alpha[0]*student_loss + alpha[1]*distillation_loss + alpha[2]*feature_loss
+kd_trainer_instance.train(train_loader=train_loader, epoch = 1, transformer_layers_to_freeze=transformer_layers_to_freeze, projector_layers_to_learn=projector_layers_to_learn, alpha=alpha)
