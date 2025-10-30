@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch
 
 class ClassificationHead(nn.Module):
     def __init__(self, hidden_size, num_labels, inner_dim=256):
@@ -27,4 +28,6 @@ class ClassificationHead(nn.Module):
         # 3. 최종 분류 레이어 통과 (로짓 출력)
         logits = self.classifier(x)
         
-        return logits
+        # 최종 예측 레이블 (가장 큰 로짓의 인덱스) 반환
+        predicted_labels = torch.argmax(logits, dim=1)
+        return predicted_labels

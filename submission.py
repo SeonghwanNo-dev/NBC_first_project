@@ -1,18 +1,65 @@
 import pandas as pd
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trainer, TrainingArguments
+from transformers import AutoModel, AutoTokenizer, Trainer, TrainingArguments
 import torch
+import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 from datasets import Dataset
+import Module.classifier as classifier
 
 import Module.TextPreprocessingPipeline as T_Preprocessor
 import Module.processed_dataset as processed_dataset
 
+class CustomClassifier(nn.Module):
+    """
+    트랜스포머 모델(BERT)과 Classification Head를 결합하는 사용자 정의 모델.
+    """
+    def __init__(self, transformer_model, classification_head):
+        super().__init__()
+        # 파인튜닝된 트랜스포머 모델 (AutoModel.from_pretrained로 로드된 객체)
+        self.transformer = transformer_model 
+        # 파인튜닝된 Classification Head (classifier.ClassificationHead 객체)
+        self.classifier_head = classification_head
+
+    def forward(self, input_ids=None, attention_mask=None, token_type_ids=None, **kwargs):
+        # 1. 트랜스포머 모델을 통해 출력(outputs)을 얻음
+        # outputs.pooler_output: [CLS] 토큰의 임베딩을 이용한 풀링된 출력 (일반적으로 BERT 분류에 사용됨)
+        outputs = self.transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            return_dict=True
+        )
+        
+        # 2. cls vector를 Classification Head에 전달하여 최종 로짓을 계산
+        cls_vector = outputs.last_hidden_state[:, 0, :]
+        predicted_labels = self.classifier_head(cls_vector)
+        
+        # 3. Trainer 호환성을 위해 Logits만 튜플로 반환
+        return (predicted_labels) # Trainer.predict는 튜플 형태의 출력을 기대합니다.
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # 1. 모델, 토크나이저 로드
 # 저장된 모델 파일 경로 (file_name에 해당)
-model_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/upload/results/klue_bert-base_tapt_v1/artifacts/tapted_teacher"
-model = AutoModelForSequenceClassification.from_pretrained(model_path)
-tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModel.from_pretrained("klue/bert-base").to(DEVICE)
+model_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/results/fine_tuning_after_tapt/artifacts/transformer_model.pth"
+model_state_dict = torch.load(model_path, map_location=DEVICE)
+model.load_state_dict(model_state_dict)
+model.eval()
+
+classification_head = classifier.ClassificationHead(hidden_size=model.config.hidden_size, num_labels=4).to(DEVICE)
+classifier_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/results/fine_tuning_after_tapt/artifacts/classification_head.pth"
+classifier_state_dict = torch.load(classifier_path, map_location=DEVICE)
+classification_head.load_state_dict(classifier_state_dict)
+classification_head.eval()
+
+combined_model = CustomClassifier(
+    transformer_model=model,
+    classification_head=classification_head
+).to(DEVICE)
+
+tokenizer = AutoTokenizer.from_pretrained("klue/bert-base")
 
 # 2. 데이터로더로 변환
 df_test = pd.read_csv("/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/test.csv")
@@ -30,7 +77,8 @@ reviews = test_data['review']
 T_Preprocessor_instance = T_Preprocessor.TextPreprocessingPipeline()
 # X_test_processed = T_Preprocessor_instance.fit_transform(reviews)
 
-X_test_processed = reviews.tolist()
+# X_test_processed = reviews.tolist()
+X_test_processed = [str(text) for text in reviews.tolist()]
 
 test_full_encodings = tokenizer(
         X_test_processed, 
@@ -53,7 +101,7 @@ training_args = TrainingArguments(
 )
 
 trainer = Trainer(
-    model=model,
+    model=combined_model,
     args=training_args,
     tokenizer=tokenizer,
 )
@@ -79,7 +127,7 @@ if torch.cuda.is_available():
 
 
 # 제출 파일
-sample_submission = pd.read_csv("data/sample_submission.csv")
+sample_submission = pd.read_csv("/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/sample_submission.csv")
 
 submission_df = sample_submission.copy()
 submission_df = submission_df[["ID"]].merge(
