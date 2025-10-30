@@ -3,20 +3,21 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer, Trai
 import torch
 import numpy as np
 from torch.utils.data import DataLoader
+from datasets import Dataset
 
 import Module.TextPreprocessingPipeline as T_Preprocessor
 import Module.processed_dataset as processed_dataset
 
 # 1. 모델, 토크나이저 로드
 # 저장된 모델 파일 경로 (file_name에 해당)
-model_path = "./results/klue_bert-base_tapt_v1/artifacts/tapted_teacher"
+model_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/upload/results/klue_bert-base_tapt_v1/artifacts/tapted_teacher"
 model = AutoModelForSequenceClassification.from_pretrained(model_path)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 # 2. 데이터로더로 변환
-df_test = pd.read_csv("./data/test.csv")
+df_test = pd.read_csv("/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/test.csv")
 test_texts = df_test["review"].tolist()
-test_data_1 = pd.DataFrame(
+test_data = pd.DataFrame(
     {
         "ID": df_test["ID"],
         "review": test_texts,
@@ -24,14 +25,12 @@ test_data_1 = pd.DataFrame(
     }
 ).reset_index(drop=True)
 
-reviews = df_test['review']
-labels = df_test['label']
+reviews = test_data['review']
 
 T_Preprocessor_instance = T_Preprocessor.TextPreprocessingPipeline()
-X_test_processed, y_test = T_Preprocessor_instance.fit_transform(reviews, labels)
+# X_test_processed = T_Preprocessor_instance.fit_transform(reviews)
 
-X_test_processed = X_test_processed.tolist()
-y_test = y_test.tolist()
+X_test_processed = reviews.tolist()
 
 test_full_encodings = tokenizer(
         X_test_processed, 
@@ -40,7 +39,7 @@ test_full_encodings = tokenizer(
         max_length= 256
 )
 
-test_dataset = processed_dataset.processed_dataset(test_full_encodings, y_test)
+test_dataset = Dataset.from_dict(test_full_encodings)
 
 #2. 추론 시작
 
