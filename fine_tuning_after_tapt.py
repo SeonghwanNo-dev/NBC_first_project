@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
+import itertools
 
 import Module.classifier as classifier
 import Module.trainer as trainer
@@ -36,7 +37,7 @@ e_tool = exp_tool.ExperimentTool(PATH_TO_STORE, PROJECT_NAME, CONFIG)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # base_dir = Path(__file__).resolve().parent
-file_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/test.csv"
+file_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/upload/data/train.csv"
 df = pd.read_csv(file_path, encoding='utf-8')
 reviews = df['review']
 labels = df['label']
@@ -86,7 +87,7 @@ train_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
 
 # 3. Optimizer 설정
-params_to_learn = list(model.parameters(), classification_head.parameters())
+params_to_learn = list(itertools.chain(model.parameters(), classification_head.parameters()))
 optimizer = optim.AdamW(params=params_to_learn, lr=2e-5)
 
 # 4. Trainer 인스턴스 생성 및 훈련 시작
