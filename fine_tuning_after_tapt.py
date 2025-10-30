@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers import AutoTokenizer, AutoModel
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -44,7 +44,7 @@ labels = df['label']
 
 # 1. TAPT된 모델, 토크나이저 로드
 model_path = "/content/drive/MyDrive/Naver_boostCamp/first_project/upload/results/klue_bert-base_tapt_v1/artifacts/tapted_teacher"
-model = AutoModelForSequenceClassification.from_pretrained(model_path)
+model = AutoModel.from_pretrained(model_path)
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 classification_head = classifier.ClassificationHead(hidden_size=model.config.hidden_size, num_labels=4).to(DEVICE)

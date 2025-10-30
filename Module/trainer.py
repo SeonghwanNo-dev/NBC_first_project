@@ -40,6 +40,7 @@ class Trainer:
                 model_output = self.transformer_model(
                     input_ids=batch['input_ids'].to(self.device), 
                     attention_mask=batch['attention_mask'].to(self.device), 
+                    output_hidden_states=True,
                     return_dict=True
                 )
             
