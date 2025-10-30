@@ -124,4 +124,7 @@ class Trainer:
                 "test_acc": test_accuracy
             }
             self.experiment_tool.log(log)
+            
+        self.experiment_tool.w_log(self.transformer_model, "transformer_model")
+        self.experiment_tool.w_log(self.classification_head, "classification_head")
         return train_losses, test_accuracies
